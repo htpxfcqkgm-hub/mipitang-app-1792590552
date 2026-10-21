@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#121212">
+<title>米皮糖小摊 - 移动控制台</title>
+<style>
+  :root {
+    --bg: #121212; --panel: #1e1e1e; --text: #e0e0e0; --text-dim: #888;
+    --primary: #ff9f43; --primary-hover: #e68a2e; --danger: #ff4d4f;
+    --border: #333; --success: #52c41a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); padding-bottom: env(safe-area-inset-bottom); display: none; }
+  
+  /* 首次配置界面 */
+  #setupScreen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; justify-content: center; padding: 30px; z-index: 1000; }
+  #setupScreen h2 { font-size: 20px; margin-bottom: 10px; color: var(--primary); }
+  #setupScreen p { font-size: 13px; color: var(--text-dim); margin-bottom: 20px; line-height: 1.5; }
+  #setupScreen input { width: 100%; background: var(--panel); border: 1px solid var(--border); color: #fff; padding: 16px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; outline: none; }
+
+  /* 主界面 */
+  #mainScreen { display: none; }
+  .header { position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--border); padding: 15px; z-index: 100; text-align: center; }
+  .header h1 { font-size: 18px; font-weight: bold; color: var(--primary); letter-spacing: 1px; margin-bottom: 5px; }
+  .status { font-size: 11px; color: var(--success); }
+  
+  .tabs { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); position: sticky; top: 66px; z-index: 99; }
+  .tab { flex: 1; text-align: center; padding: 14px 0; font-size: 14px; color: var(--text-dim); cursor: pointer; transition: 0.2s; border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: bold; background: rgba(255,159,67,0.05); }
+  
+  .main { padding: 20px 15px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: none; margin-bottom: 20px; animation: fadeIn 0.3s ease; }
+  .card.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  .card-title { font-size: 15px; font-weight: bold; margin-bottom: 15px; color: #fff; }
+  
+  .form-group { margin-bottom: 15px; }
+  label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-dim); }
+  input, textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); color: #fff; padding: 14px; border-radius: 8px; font-size: 16px; outline: none; transition: 0.2s; }
+  input:focus, textarea:focus { border-color: var(--primary); }
+  textarea { resize: vertical; height: 120px; line-height: 1.5; }
+  
+  .btn { background: var(--primary); color: #000; border: none; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.1s; width: 100%; }
+  .btn:active { background: var(--primary-hover); transform: scale(0.98); }
+  .btn:disabled { background: #555; color: #888; cursor: not-allowed; transform: none; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:active { background: #d9363e; }
+  
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); padding: 10px 20px; border-radius: 8px; color: #fff; font-size: 14px; font-weight: bold; opacity: 0; transition: 0.3s; z-index: 999; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.success { background: var(--success); }
+  .toast.error { background: var(--danger); }
+  
+  /* 隐藏的重置按钮 */
+  .reset-btn { text-align: center; font-size: 11px; color: #555; margin-top: 40px; text-decoration: underline; cursor: pointer; padding: 10px; }
+</style>
+</head>
+<body>
+
+<!-- 首次配置界面（填完就隐藏） -->
+<div id="setupScreen">
+  <h2>欢迎使用米皮糖控制台</h2>
+  <p>检测到您首次使用，请绑定您的 GitHub Token。<br>该密钥将安全地保存在您本机，填一次即可永久隐藏。</p>
+  <input type="password" id="setupTokenInput" placeholder="请输入 ghp_... 开头的 Token">
+  <button class="btn" onclick="saveToken()">保存并进入后台</button>
+</div>
+
+<!-- 主界面 -->
+<div id="mainScreen">
+  <div class="header">
+    <h1>🍬 米皮糖移动控制台</h1>
+    <div class="status">✔ 已安全连接 htpxfcqkgm-hub</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('tab-notice', this)">📢 官方公告</div>
+    <div class="tab" onclick="switchTab('tab-ban', this)">🔨 封禁玩家</div>
+  </div>
+
+  <div class="main">
+    <div id="tab-notice" class="card active">
+      <div class="card-title">推送官方公告</div>
+      <div class="form-group">
+        <label>公告内容 (留空发布则清空玩家公告)</label>
+        <textarea id="noticeInput" placeholder="在此输入公告内容..."></textarea>
+      </div>
+      <button class="btn" onclick="publishNotice()">🚀 发布公告</button>
+    </div>
+
+    <div id="tab-ban" class="card">
+      <div class="card-title">封禁违规玩家</div>
+      <div class="form-group">
+        <label>输入玩家 UID</label>
+        <input type="text" id="banInput" placeholder="例如: MPT-3F9A-2C71">
+      </div>
+      <button class="btn btn-danger" onclick="banUser()">🔨 确认封禁</button>
+    </div>
+    
+    <!-- 藏在下方的重置按钮，防止你哪天换 Token 找不到地方 -->
+    <div class="reset-btn" onclick="resetToken()">重置密钥 (清除本地 Token)</div>
+  </div>
+</div>
+
+<div id="toast" class="toast">提示信息</div>
+
+<script>
+  const GITHUB_USER = 'htpxfcqkgm-hub';
+  const GITHUB_REPO = 'mipitang-assets';
+  const GITHUB_BRANCH = 'main';
+  
+  // 从本地读取 Token（如果没有就是空）
+  let currentToken = localStorage.getItem('mpt_admin_token') || '';
+
+  // 初始化界面逻辑
+  window.onload = function() {
+    document.body.style.display = 'block';
+    if (currentToken) {
+      // 如果有 Token，直接显示主界面
+      document.getElementById('setupScreen').style.display = 'none';
+      document.getElementById('mainScreen').style.display = 'block';
+    } else {
+      // 没 Token，显示配置界面
+      document.getElementById('setupScreen').style.display = 'flex';
+      document.getElementById('mainScreen').style.display = 'none';
+    }
+  };
+
+  // 保存 Token 并在本地永久存储
+  function saveToken() {
+    const input = document.getElementById('setupTokenInput').value.trim();
+    if (!input || !input.startsWith('ghp_')) {
+      alert('请输入正确的 Token 格式（以 ghp_ 开头）');
+      return;
+    }
+    localStorage.setItem('mpt_admin_token', input);
+    currentToken = input;
+    
+    // 切换界面
+    document.getElementById('setupScreen').style.display = 'none';
+    document.getElementById('mainScreen').style.display = 'block';
+    showToast('配置成功，已进入后台', 'success');
+  }
+
+  // 重置 Token（比如 Token 过期了）
+  function resetToken() {
+    if (confirm('确定要清除本地保存的 Token 吗？清除后需要重新填写。')) {
+      localStorage.removeItem('mpt_admin_token');
+      currentToken = '';
+      window.location.reload();
+    }
+  }
+
+  function switchTab(tabId, el) {
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(n => n.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    el.classList.add('active');
+  }
+
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.innerText = msg;
+    t.className = `toast show ${type}`;
+    setTimeout(() => t.className = 'toast', 3000);
+  }
+
+  async function purgeCDN(filename) {
+    try {
+      await fetch(`https://purge.jsdelivr.net/gh/${GITHUB_USER}/${GITHUB_REPO}@${GITHUB_BRANCH}/${filename}`);
+    } catch (e) {}
+  }
+
+  async function updateGitHubFile(filename, contentObj, commitMessage) {
+    const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${filename}`;
+    try {
+      const getRes = await fetch(url, { headers: { 'Authorization': 'token ' + currentToken } });
+      if (getRes.status === 401) throw new Error('Token 已失效，请点击底部重置密钥');
+      const fileData = await getRes.json();
+      let sha = fileData.sha || undefined;
+      const base64Content = btoa(unescape(encodeURIComponent(JSON.stringify(contentObj, null, 2))));
+      
+      const putRes = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Authorization': 'token ' + currentToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: commitMessage, content: base64Content, sha: sha, branch: GITHUB_BRANCH })
+      });
+      if (!putRes.ok) throw new Error('提交失败，权限不足');
+      await purgeCDN(filename);
+      return true;
+    } catch (err) {
+      showToast(err.message, 'error');
+      return false;
+    }
+  }
+
+  async function publishNotice() {
+    const notice = document.getElementById('noticeInput').value.trim();
+    const data = { notice: notice };
+    const btn = event.target;
+    btn.innerText = '正在发布...'; btn.disabled = true;
+    
+    const ok = await updateGitHubFile('version.json', data, `移动端更新公告`);
+    if (ok) {
+      showToast('公告发布成功！');
+      document.getElementById('noticeInput').value = ''; 
+    }
+    btn.innerText = '🚀 发布公告'; btn.disabled = false;
+  }
+
+  async function banUser() {
+    const uid = document.getElementById('banInput').value.trim();
+    if(!uid) return showToast('请输入要封禁的 UID', 'error');
+    
+    const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/blacklist.json`;
+    const btn = event.target;
+    btn.innerText = '处理中...'; btn.disabled = true;
+    
+    try {
+      const getRes = await fetch(url, { headers: { 'Authorization': 'token ' + currentToken } });
+      const fileData = await getRes.json();
+      let currentList = { updated: new Date().toISOString().split('T')[0], uids: [] };
+      
+      if (getRes.ok && fileData.content) {
+        currentList = JSON.parse(decodeURIComponent(escape(atob(fileData.content))));
+      }
+      
+      if(!currentList.uids.includes(uid)) currentList.uids.push(uid);
+      
+      const ok = await updateGitHubFile('blacklist.json', currentList, `移动端封禁: ${uid}`);
+      if (ok) {
+        showToast('封禁成功！');
+        document.getElementById('banInput').value = '';
+      }
+    } catch(e) { showToast('操作失败，请检查网络', 'error'); }
+    
+    btn.innerText = '🔨 确认封禁'; btn.disabled = false;
+  }
+</script>
+</body>
+</html>
